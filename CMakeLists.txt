@@ -5,20 +5,37 @@ find_package(PythonLibs 3.6 REQUIRED)
 
 include_directories(
     ${PYTHON_INCLUDE_DIRS}
-    ./pybind11/include
+    ${CMAKE_SOURCE_DIR}/pybind11/include
+    SYSTEM
+    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+    ${GLFW3_INCLUDE_DIR}
+    ${GLEW_INCLUDE_DIRS}
+    ${GLM_INCLUDE_DIR}
     )
 
 link_directories(
     /usr/local/cuda/lib64
     )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_STANDARD 14)
+set(OpenGL_GL_PREFERENCE "GLVND")
+set( CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" "--shared --compiler-options '-fPIC'" )
 
-cuda_add_library(gpu_library SHARED
-  gpu_library.cu)
+string(APPEND CMAKE_CUDA_FLAGS " --expt-extended-lambda")
+set(CUDA_PROPAGATE_HOST_FLAGS ON)
 
-target_link_libraries(gpu_library
-  ${PYTHON_LIBRARIES}
-  cudart)
+add_library(dogm_py SHARED
+        dogm_py.cpp
+    ${HEADER_FILES}
+    ${SRC_FILES}
+    )
 
-set_target_properties(gpu_library PROPERTIES PREFIX "")
+target_link_libraries(dogm_py
+    ${PYTHON_LIBRARIES}
+    ${OPENGL_LIBRARY}
+    ${GLFW3_LIBRARY}
+    ${GLEW_LIBRARIES}
+    cudart
+)
+
+set_target_properties(dogm_py PROPERTIES PREFIX "")
