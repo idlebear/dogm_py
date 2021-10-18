@@ -3,10 +3,13 @@
 #include "./pybind11/include/pybind11/stl_bind.h"
 #include "./pybind11/include/pybind11/numpy.h"
 
+#include <algorithm>
 #include <dogm/dogm.h>
 #include <dogm/dogm_types.h>
 #include <dogm/mapping/laser_to_meas_grid.h>
 #include <iostream>
+
+#include <Eigen/Dense>
 
 namespace py = pybind11;
 
@@ -40,39 +43,142 @@ namespace dogm {
     grid.updateGrid( ptr.get(), x, y, yaw, dt, device );
   }
 
-  py::array_t<float> render_occupancy_grid( const DOGM& grid ) {
+  float pignisticTransformation(float free_mass, float occ_mass) {
+    return occ_mass + 0.5f * (1.0f - occ_mass - free_mass);
+  }
+
+  void hsvToRGB(float hue, float saturation, float value, float &r, float &g, float &b) {
+
+    if (saturation == 0.0f) {
+      r = g = b = value;
+    } else {
+      int i = static_cast<int>(hue * 6.0f);
+      float f = (hue * 6.0f) - i;
+      float p = value * (1.0f - saturation);
+      float q = value * (1.0f - saturation * f);
+      float t = value * (1.0f - saturation * (1.0f - f));
+      int res = i % 6;
+
+      switch (res) {
+        case 0:
+          r = value;
+          g = t;
+          b = p;
+          break;
+        case 1:
+          r = q;
+          g = value;
+          b = p;
+          break;
+        case 2:
+          r = p;
+          g = value;
+          b = t;
+          break;
+        case 3:
+          r = p;
+          g = q;
+          b = value;
+          break;
+        case 4:
+          r = t;
+          g = p;
+          b = value;
+          break;
+        case 5:
+          r = value;
+          g = p;
+          b = q;
+          break;
+        default:
+          r = g = b = value;
+      }
+    }
+  }
+
+  py::array_t<float> render_dynamic_occupancy_grid( const DOGM& grid, double occupancy_threshold,
+                                                            double dynamic_threshold, double max_velocity ) {
     auto width = grid.getGridSize();
     auto height = grid.getGridSize();
-    float *grid_ptr = new float[ width * height ];
+    auto depth = 3;
+    float *grid_ptr = new float[ depth * width * height ];
 
     const auto grid_cells = grid.getGridCells();
     #pragma omp parallel for
     for( int y = 0; y < height; y++ ) {
       for( int x = 0; x < width; x++ ) {
         auto cell = grid_cells[y*width + x];
-        float free_mass = cell.free_mass;
-        float occ_mass = cell.occ_mass;
+        float occ = pignisticTransformation(cell.free_mass, cell.occ_mass);
 
-        float prob = occ_mass + 0.5f * (1.0f - occ_mass - free_mass);
+        Eigen::Vector2f vel;
+        vel << cell.mean_x_vel, cell.mean_y_vel;
+
+        Eigen::Matrix2f covar;
+        covar << cell.var_x_vel, cell.covar_xy_vel, cell.covar_xy_vel, cell.var_y_vel;
+
+        auto mdist = vel.transpose() * covar.inverse() * vel;
+
+        float r, g, b;
+        if (occ >= occupancy_threshold && mdist >= dynamic_threshold ) {
+          float angle = atan2(cell.mean_y_vel, cell.mean_x_vel) + M_PI;
+
+          auto value = std::min(1.0, sqrt(cell.mean_x_vel * cell.mean_x_vel +
+                                          cell.mean_y_vel * cell.mean_y_vel) / max_velocity );
+
+          hsvToRGB(angle / M_PI, 1.0f, value, r, g, b);
+        } else {
+          r = g = b = occ;
+        }
+        grid_ptr[ depth * ( y*width + x ) ] = r;
+        grid_ptr[ depth * ( y*width + x ) + 1 ] = g;
+        grid_ptr[ depth * ( y*width + x ) + 2 ] = b;
+      }
+    }
+
+    // Create a Python object that will free the allocated
+    // memory when destroyed:
+    py::capsule delete_fn(grid_ptr, [](void *p) {
+      float *ptr = reinterpret_cast<float *>(p);
+      delete[] ptr;
+    });
+
+    return py::array_t<float>(
+            {height, width, depth}, // shape
+            {depth*width*sizeof(float), depth*sizeof(float), sizeof(float)}, // C-style contiguous strides
+            grid_ptr, // the data pointer
+            delete_fn); // numpy array references this parent
+  }
+
+
+  py::array_t<float> render_occupancy_grid( const DOGM& grid ) {
+    auto width = grid.getGridSize();
+    auto height = grid.getGridSize();
+    float *grid_ptr = new float[ width * height ];
+
+    const auto grid_cells = grid.getGridCells();
+  #pragma omp parallel for
+    for( int y = 0; y < height; y++ ) {
+      for( int x = 0; x < width; x++ ) {
+        auto cell = grid_cells[y*width + x];
+        float prob = pignisticTransformation( cell.free_mass, cell.occ_mass );
         grid_ptr[ y*width + x ] = prob;
       }
     }
 
     // Create a Python object that will free the allocated
     // memory when destroyed:
-    py::capsule free_when_done(grid_ptr, [](void *p) {
-      double *ptr = reinterpret_cast<double *>(p);
-      std::cerr << "Element [0] = " << ptr[0] << "\n";
-      std::cerr << "freeing memory @ " << p << "\n";
+    py::capsule delete_fn(grid_ptr, [](void *p) {
+      float *ptr = reinterpret_cast<float *>(p);
       delete[] ptr;
     });
 
     return py::array_t<float>(
-            {width, height}, // shape
+            {height, width}, // shape
             {width*sizeof(float), sizeof(float)}, // C-style contiguous strides
             grid_ptr, // the data pointer
-            free_when_done); // numpy array references this parent
+            delete_fn); // numpy array references this parent
   }
+
 
   PYBIND11_MODULE(dogm_py, m) {
     // bind a vector of floats to pass into the laser measurement grid
@@ -156,6 +262,9 @@ namespace dogm {
 
     m.def( "renderOccupancyGrid", &render_occupancy_grid, "Convert the occupancy grid into a numpy array",
            py::arg("grid"));
+
+    m.def( "renderDynamicOccupancyGrid", &render_dynamic_occupancy_grid, "Convert the occupancy grid into a RGB numpy array encoding of dynamic elements",
+           py::arg("grid"), py::arg("occupancy_threshold"), py::arg("dynamic_threshold"), py::arg("max_velocity"));
 
   }
 
