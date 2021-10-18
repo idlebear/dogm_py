@@ -127,7 +127,7 @@ namespace dogm {
 
           hsvToRGB(angle / M_PI, 1.0f, value, r, g, b);
         } else {
-          r = g = b = occ;
+          r = g = b = 1.0f - occ;
         }
         grid_ptr[ depth * ( y*width + x ) ] = r;
         grid_ptr[ depth * ( y*width + x ) + 1 ] = g;
@@ -161,7 +161,7 @@ namespace dogm {
       for( int x = 0; x < width; x++ ) {
         auto cell = grid_cells[y*width + x];
         float prob = pignisticTransformation( cell.free_mass, cell.occ_mass );
-        grid_ptr[ y*width + x ] = prob;
+        grid_ptr[ y*width + x ] = 1.0f - prob;
       }
     }
 
