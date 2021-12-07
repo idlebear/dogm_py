@@ -198,18 +198,20 @@ namespace dogm {
            py::arg("dt"), py::arg("device"));
 
     py::class_<LaserMeasurementGrid::Params>(m, "LaserMeasurementGridParams")
-            .def(py::init<float, float, float>(),
+            .def(py::init<float, float, float, float>(),
                  R"lmgPARAM(
     struct Params {
       float max_range;
       float resolution;
       float fov;
+      float angle_increment;
     };
                         )lmgPARAM", py::arg("max_range"), py::arg("resolution"),
                         py::arg("fov"))
             .def_readwrite("max_range", &LaserMeasurementGrid::Params::max_range)
             .def_readwrite("resolution", &LaserMeasurementGrid::Params::resolution)
             .def_readwrite("fov", &LaserMeasurementGrid::Params::fov)
+            .def_readwrite("angle_increment", &LaserMeasurementGrid::Params::angle_increment)
             ;
 
     py::class_<LaserMeasurementGrid>(m, "LaserMeasurementGrid")
