@@ -207,7 +207,7 @@ namespace dogm {
       float angle_increment;
     };
                         )lmgPARAM", py::arg("max_range"), py::arg("resolution"),
-                        py::arg("fov"))
+                        py::arg("fov"), py::arg("angle_increment"))
             .def_readwrite("max_range", &LaserMeasurementGrid::Params::max_range)
             .def_readwrite("resolution", &LaserMeasurementGrid::Params::resolution)
             .def_readwrite("fov", &LaserMeasurementGrid::Params::fov)

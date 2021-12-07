@@ -1,5 +1,7 @@
+project(DOGM LANGUAGES CXX CUDA)
 cmake_minimum_required(VERSION 3.6)
-find_package(CUDA REQUIRED)
+
+find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(PythonInterp 3.6 REQUIRED)
 find_package(PythonLibs 3.6 REQUIRED)
 
@@ -11,6 +13,7 @@ include_directories(
     ${GLFW3_INCLUDE_DIR}
     ${GLEW_INCLUDE_DIRS}
     ${GLM_INCLUDE_DIR}
+    ${EIGEN3_INCLUDE_DIR}
     )
 
 link_directories(
