@@ -1,4 +1,4 @@
-project(DOGM LANGUAGES CXX CUDA)
+project(DOGM_PY LANGUAGES CXX CUDA)
 cmake_minimum_required(VERSION 3.6)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
