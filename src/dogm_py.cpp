@@ -186,6 +186,9 @@ namespace dogm {
 
     m.doc() = "Python bindings for the Dynamic Occupancy Grid Map Library";
 
+    py::class_<ptr_wrapper<MeasurementCell>>(m, "MeasurementCellPtr")
+      .def(py::init<>(), "Wrapper for CUDA pointer returned by LaserMeasurementGrid" );
+
     m.def( "generateMeasurements", &wrap_laser_grid, py::arg( "laser_measurement_grid"),
            py::arg("measurements") );
 
