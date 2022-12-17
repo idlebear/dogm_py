@@ -27,7 +27,7 @@ Run
 ```bash
 -> python setup.py -e dogm_py
 ```
-Alternatively, just `dogm_py.so` to a directory on your $PYTHONPATH.  Then from python
+Alternatively, just copy `dogm_py.so` to a directory on your $PYTHONPATH.  Then from python
 ```
 $ python
 Python 3.8.10 (default, Sep 28 2021, 16:10:42) 
