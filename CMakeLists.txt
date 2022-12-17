@@ -1,3 +1,4 @@
+project(DOGM_PY LANGUAGES CXX CUDA)
 cmake_minimum_required(VERSION 3.6)
 project( dogm_py LANGUAGES CXX CUDA )
 
@@ -20,6 +21,7 @@ include_directories(
     ${GLFW3_INCLUDE_DIR}
     ${GLEW_INCLUDE_DIRS}
     ${GLM_INCLUDE_DIR}
+    ${EIGEN3_INCLUDE_DIR}
     )
 
 link_directories(
