@@ -34,13 +34,13 @@ namespace dogm {
     T* ptr;
   };
 
-  ptr_wrapper<MeasurementCell> wrap_laser_grid( LaserMeasurementGrid& lmg, const std::vector<float>& measurements ) {
-    ptr_wrapper<MeasurementCell> ptr(lmg.generateGrid( measurements ));
-    return ptr;
+  MeasurementCellsSoA wrap_laser_grid( LaserMeasurementGrid& lmg, const std::vector<float>& measurements ) {
+    MeasurementCellsSoA cells(lmg.generateGrid( measurements ));
+    return cells;
   }
 
-  void wrap_dogm_grid( DOGM& grid, ptr_wrapper<MeasurementCell>& ptr, float x, float y, float yaw, float dt, bool device){
-    grid.updateGrid( ptr.get(), x, y, yaw, dt, device );
+  void wrap_dogm_grid( DOGM& grid, MeasurementCellsSoA cells, float x, float y, float dt ){
+    grid.updateGrid( cells, x, y, dt );
   }
 
   float pignisticTransformation(float free_mass, float occ_mass) {
@@ -107,23 +107,23 @@ namespace dogm {
     #pragma omp parallel for
     for( int y = 0; y < height; y++ ) {
       for( int x = 0; x < width; x++ ) {
-        auto cell = grid_cells[y*width + x];
-        float occ = pignisticTransformation(cell.free_mass, cell.occ_mass);
+        auto cell_idx = y*width + x;
+        float occ = pignisticTransformation(grid_cells.free_mass[cell_idx], grid_cells.occ_mass[cell_idx]);
 
         Eigen::Vector2f vel;
-        vel << cell.mean_x_vel, cell.mean_y_vel;
+        vel << grid_cells.mean_x_vel[cell_idx], grid_cells.mean_y_vel[cell_idx];
 
         Eigen::Matrix2f covar;
-        covar << cell.var_x_vel, cell.covar_xy_vel, cell.covar_xy_vel, cell.var_y_vel;
+        covar << grid_cells.var_x_vel[cell_idx], grid_cells.covar_xy_vel[cell_idx], grid_cells.covar_xy_vel[cell_idx], grid_cells.var_y_vel[cell_idx];
 
         auto mdist = vel.transpose() * covar.inverse() * vel;
 
         float r, g, b;
         if (occ >= occupancy_threshold && mdist >= dynamic_threshold ) {
-          float angle = atan2(cell.mean_y_vel, cell.mean_x_vel) + M_PI;
+          float angle = atan2(vel[1], vel[0]) + M_PI;
 
-          auto value = std::min(1.0, sqrt(cell.mean_x_vel * cell.mean_x_vel +
-                                          cell.mean_y_vel * cell.mean_y_vel) / max_velocity );
+          auto value = std::min(1.0, sqrt(vel[0] * vel[0] +
+                                          vel[1] * vel[1]) / max_velocity );
 
           hsvToRGB(angle / M_PI, 1.0f, value, r, g, b);
         } else {
@@ -159,8 +159,8 @@ namespace dogm {
   #pragma omp parallel for
     for( int y = 0; y < height; y++ ) {
       for( int x = 0; x < width; x++ ) {
-        auto cell = grid_cells[y*width + x];
-        float prob = pignisticTransformation( cell.free_mass, cell.occ_mass );
+        auto cell_idx = y*width + x;
+        float prob = pignisticTransformation( grid_cells.free_mass[cell_idx], grid_cells.occ_mass[cell_idx] );
         grid_ptr[ y*width + x ] = 1.0f - prob;
       }
     }
@@ -186,30 +186,32 @@ namespace dogm {
 
     m.doc() = "Python bindings for the Dynamic Occupancy Grid Map Library";
 
-    py::class_<ptr_wrapper<MeasurementCell>>(m, "MeasurementCellPtr")
-      .def(py::init<>(), "Wrapper for CUDA pointer returned by LaserMeasurementGrid" );
-
     m.def( "generateMeasurements", &wrap_laser_grid, py::arg( "laser_measurement_grid"),
            py::arg("measurements") );
 
     m.def( "updateGrid", &wrap_dogm_grid, "Wrapper function for grid update",
-           py::arg("grid"), py::arg("measurement_ptr"), py::arg("x"),
-           py::arg("y"), py::arg("yaw"),
-           py::arg("dt"), py::arg("device"));
+           py::arg("grid"), py::arg("measurements"), py::arg("x"),
+           py::arg("y"),
+           py::arg("dt"));
 
     py::class_<LaserMeasurementGrid::Params>(m, "LaserMeasurementGridParams")
-            .def(py::init<float, float, float>(),
+            .def(py::init<float, float, float, float, float>(),
                  R"lmgPARAM(
     struct Params {
       float max_range;
       float resolution;
       float fov;
+      float angle_increment;
+      float stddev_range;
     };
                         )lmgPARAM", py::arg("max_range"), py::arg("resolution"),
-                        py::arg("fov"))
+                        py::arg("fov"), py::arg("angle_increment"), py::arg("stddev_range"))
+
             .def_readwrite("max_range", &LaserMeasurementGrid::Params::max_range)
             .def_readwrite("resolution", &LaserMeasurementGrid::Params::resolution)
             .def_readwrite("fov", &LaserMeasurementGrid::Params::fov)
+            .def_readwrite("angle_increment", &LaserMeasurementGrid::Params::angle_increment)
+            .def_readwrite("stddev_range", &LaserMeasurementGrid::Params::stddev_range)
             ;
 
     py::class_<LaserMeasurementGrid>(m, "LaserMeasurementGrid")
@@ -249,7 +251,7 @@ namespace dogm {
     py::class_<DOGM>(m, "DOGM")
             .def(py::init<const DOGM::Params&>(), py::arg("params") )
             .def("updateGrid", &DOGM::updateGrid, "Update the current state with constructed measurement grid",
-                 py::arg("cellData"), py::arg("x"), py::arg("y"), py::arg("yaw"), py::arg("dt"), py::arg("device"))
+                 py::arg("cellData"), py::arg("x"), py::arg("y"), py::arg("dt"))
             .def("getGridCells", &DOGM::getGridCells)
             .def("getMeasurementCells", &DOGM::getMeasurementCells)
             .def("getParticles", &DOGM::getParticles)
@@ -257,7 +259,6 @@ namespace dogm {
             .def("getResolution", &DOGM::getResolution)
             .def("getPositionX", &DOGM::getPositionX)
             .def("getPositionY", &DOGM::getPositionY)
-            .def("getYaw", &DOGM::getYaw)
             .def("getIteration", &DOGM::getIteration);
 
     m.def( "renderOccupancyGrid", &render_occupancy_grid, "Convert the occupancy grid into a numpy array",
