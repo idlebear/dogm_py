@@ -14,3 +14,5 @@ cmake-build-release/
 dogm_py/dogm_py.egg-info/
 
 dogm_py/dogm_py/__pycache__/
+
+build/

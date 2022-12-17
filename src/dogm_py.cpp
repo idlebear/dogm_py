@@ -1,7 +1,7 @@
 
-#include "./pybind11/include/pybind11/pybind11.h"
-#include "./pybind11/include/pybind11/stl_bind.h"
-#include "./pybind11/include/pybind11/numpy.h"
+#include "pybind11/pybind11.h"
+#include "pybind11/stl_bind.h"
+#include "pybind11/numpy.h"
 
 #include <algorithm>
 #include <dogm/dogm.h>
@@ -221,7 +221,7 @@ namespace dogm {
             .def(py::init<const LaserMeasurementGrid::Params&, float, float>(),
                  py::arg("params"), py::arg("size"), py::arg("resolution"))
             .def("generateGrid", &LaserMeasurementGrid::generateGrid, "Create a grid representation of supplied laser measurements",
-                 py::arg("measurements"));
+                 py::arg("measurements"), py::arg("angle_offset"));
 
     py::class_<DOGM::Params>(m, "DOGMParams")
             .def(py::init<float, float, int, int, float, float, float, float, float, float>(),
