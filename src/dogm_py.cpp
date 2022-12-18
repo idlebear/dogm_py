@@ -1,7 +1,7 @@
 
-#include "./pybind11/include/pybind11/pybind11.h"
-#include "./pybind11/include/pybind11/stl_bind.h"
-#include "./pybind11/include/pybind11/numpy.h"
+#include "pybind11/pybind11.h"
+#include "pybind11/stl_bind.h"
+#include "pybind11/numpy.h"
 
 #include <algorithm>
 #include <dogm/dogm.h>
@@ -34,13 +34,13 @@ namespace dogm {
     T* ptr;
   };
 
-  ptr_wrapper<MeasurementCell> wrap_laser_grid( LaserMeasurementGrid& lmg, const std::vector<float>& measurements ) {
-    ptr_wrapper<MeasurementCell> ptr(lmg.generateGrid( measurements ));
-    return ptr;
+  MeasurementCellsSoA wrap_laser_grid( LaserMeasurementGrid& lmg, const std::vector<float>& measurements ) {
+    MeasurementCellsSoA cells(lmg.generateGrid( measurements ));
+    return cells;
   }
 
-  void wrap_dogm_grid( DOGM& grid, ptr_wrapper<MeasurementCell>& ptr, float x, float y, float yaw, float dt, bool device){
-    grid.updateGrid( ptr.get(), x, y, yaw, dt, device );
+  void wrap_dogm_grid( DOGM& grid, MeasurementCellsSoA cells, float x, float y, float dt ){
+    grid.updateGrid( cells, x, y, dt );
   }
 
   float pignisticTransformation(float free_mass, float occ_mass) {
@@ -105,34 +105,31 @@ namespace dogm {
 
     const auto grid_cells = grid.getGridCells();
     #pragma omp parallel for
-    for( int y = 0; y < height; y++ ) {
-      for( int x = 0; x < width; x++ ) {
-        auto cell = grid_cells[y*width + x];
-        float occ = pignisticTransformation(cell.free_mass, cell.occ_mass);
+    for( int cell_idx = 0; cell_idx < width * height; cell_idx++ ) {
+        float occ = pignisticTransformation(grid_cells.free_mass[cell_idx], grid_cells.occ_mass[cell_idx]);
 
         Eigen::Vector2f vel;
-        vel << cell.mean_x_vel, cell.mean_y_vel;
+        vel << grid_cells.mean_x_vel[cell_idx], grid_cells.mean_y_vel[cell_idx];
 
         Eigen::Matrix2f covar;
-        covar << cell.var_x_vel, cell.covar_xy_vel, cell.covar_xy_vel, cell.var_y_vel;
+        covar << grid_cells.var_x_vel[cell_idx], grid_cells.covar_xy_vel[cell_idx], grid_cells.covar_xy_vel[cell_idx], grid_cells.var_y_vel[cell_idx];
 
         auto mdist = vel.transpose() * covar.inverse() * vel;
 
         float r, g, b;
         if (occ >= occupancy_threshold && mdist >= dynamic_threshold ) {
-          float angle = atan2(cell.mean_y_vel, cell.mean_x_vel) + M_PI;
+          float angle = atan2(vel[1], vel[0]) + M_PI;
 
-          auto value = std::min(1.0, sqrt(cell.mean_x_vel * cell.mean_x_vel +
-                                          cell.mean_y_vel * cell.mean_y_vel) / max_velocity );
+          auto value = std::min(1.0, sqrt(vel[0] * vel[0] +
+                                          vel[1] * vel[1]) / max_velocity );
 
           hsvToRGB(angle / M_PI, 1.0f, value, r, g, b);
         } else {
           r = g = b = 1.0f - occ;
         }
-        grid_ptr[ depth * ( y*width + x ) ] = r;
-        grid_ptr[ depth * ( y*width + x ) + 1 ] = g;
-        grid_ptr[ depth * ( y*width + x ) + 2 ] = b;
-      }
+        grid_ptr[ depth * cell_idx ] = r;
+        grid_ptr[ depth * cell_idx + 1 ] = g;
+        grid_ptr[ depth * cell_idx + 2 ] = b;
     }
 
     // Create a Python object that will free the allocated
@@ -156,14 +153,13 @@ namespace dogm {
     float *grid_ptr = new float[ width * height ];
 
     const auto grid_cells = grid.getGridCells();
-  #pragma omp parallel for
-    for( int y = 0; y < height; y++ ) {
-      for( int x = 0; x < width; x++ ) {
-        auto cell = grid_cells[y*width + x];
-        float prob = pignisticTransformation( cell.free_mass, cell.occ_mass );
-        grid_ptr[ y*width + x ] = 1.0f - prob;
-      }
+
+    #pragma omp parallel for
+    for (int i = 0; i < width * height; i++) {
+        grid_ptr[ i ] = pignisticTransformation( grid_cells.free_mass[i], grid_cells.occ_mass[i] );
     }
+
+    grid.freeGridCells(grid_cells);
 
     // Create a Python object that will free the allocated
     // memory when destroyed:
@@ -177,6 +173,16 @@ namespace dogm {
             {width*sizeof(float), sizeof(float)}, // C-style contiguous strides
             grid_ptr, // the data pointer
             delete_fn); // numpy array references this parent
+  }
+
+  auto make_np_buffer(float* ptr, int size) -> py::array_t<float> {
+      return py::array_t<float>(
+              { size },                   // shape of array
+              { sizeof(float) },          // Strides (in bytes) for each index
+              ptr,                        // Pointer to buffer
+              nullptr                     // this would otherwise be the function to call when destroying, but
+                                          // that can't happen here.
+      );
   }
 
 
@@ -193,32 +199,95 @@ namespace dogm {
            py::arg("measurements") );
 
     m.def( "updateGrid", &wrap_dogm_grid, "Wrapper function for grid update",
-           py::arg("grid"), py::arg("measurement_ptr"), py::arg("x"),
-           py::arg("y"), py::arg("yaw"),
-           py::arg("dt"), py::arg("device"));
+           py::arg("grid"), py::arg("measurements"), py::arg("x"),
+           py::arg("y"),
+           py::arg("dt"));
 
     py::class_<LaserMeasurementGrid::Params>(m, "LaserMeasurementGridParams")
-            .def(py::init<float, float, float, float>(),
+            .def(py::init<float, float, float, float, float>(),
                  R"lmgPARAM(
     struct Params {
       float max_range;
       float resolution;
       float fov;
       float angle_increment;
+      float stddev_range;
     };
                         )lmgPARAM", py::arg("max_range"), py::arg("resolution"),
-                        py::arg("fov"), py::arg("angle_increment"))
+                        py::arg("fov"), py::arg("angle_increment"), py::arg("stddev_range"))
+
             .def_readwrite("max_range", &LaserMeasurementGrid::Params::max_range)
             .def_readwrite("resolution", &LaserMeasurementGrid::Params::resolution)
             .def_readwrite("fov", &LaserMeasurementGrid::Params::fov)
             .def_readwrite("angle_increment", &LaserMeasurementGrid::Params::angle_increment)
+            .def_readwrite("stddev_range", &LaserMeasurementGrid::Params::stddev_range)
             ;
 
-    py::class_<LaserMeasurementGrid>(m, "LaserMeasurementGrid")
+        py::class_<GridCellsSoA>(m, "GridCellsSoA")
+                .def(py::init<int, bool>(),
+                     R"gcSoAPARAM(
+    struct GridCellsSoA {
+        int* start_idx;
+        int* end_idx;
+        float* new_born_occ_mass;
+        float* pers_occ_mass;
+        float* free_mass;
+        float* occ_mass;
+        float* pred_occ_mass;
+        float* mu_A;
+        float* mu_UA;
+
+        float* w_A;
+        float* w_UA;
+
+        float* mean_x_vel;
+        float* mean_y_vel;
+        float* var_x_vel;
+        float* var_y_vel;
+        float* covar_xy_vel;
+
+        int size;
+        bool device;
+    };
+                        )gcSoAPARAM",  py::arg("size"), py::arg("device"))
+        .def("free", &GridCellsSoA::free)
+        .def("get_free_mass", [](GridCellsSoA &gc) -> py::array_t<float> {
+            return make_np_buffer( gc.free_mass, gc.size );
+        })
+        .def("get_occ_mass", [](GridCellsSoA &gc) -> py::array_t<float> {
+            return make_np_buffer( gc.occ_mass, gc.size );
+        })
+        .def("get_mean_x_vel", [](GridCellsSoA &gc) -> py::array_t<float> {
+            return make_np_buffer( gc.mean_x_vel, gc.size );
+        })
+        .def("get_mean_y_vel", [](GridCellsSoA &gc) -> py::array_t<float> {
+            return make_np_buffer( gc.mean_y_vel, gc.size );
+        })
+        .def("get_var_x_vel", [](GridCellsSoA &gc) -> py::array_t<float> {
+            return make_np_buffer( gc.var_x_vel, gc.size );
+        })
+        .def("get_var_y_vel", [](GridCellsSoA &gc) -> py::array_t<float> {
+            return make_np_buffer( gc.var_y_vel, gc.size );
+        })
+        .def("get_covar_xy_vel", [](GridCellsSoA &gc) -> py::array_t<float> {
+            return make_np_buffer( gc.covar_xy_vel, gc.size );
+        })
+        .def_readwrite("size", &GridCellsSoA::size);
+
+        py::class_<MeasurementCellsSoA>(m, "MeasurementCellsSoA")
+                .def(py::init<int, bool>(),
+                     R"gcSoAPARAM(
+    struct MeasurementCellsSoA {
+        // private
+    };
+                        )gcSoAPARAM",  py::arg("size"), py::arg("device"))
+                .def("free", &MeasurementCellsSoA::free);
+
+        py::class_<LaserMeasurementGrid>(m, "LaserMeasurementGrid")
             .def(py::init<const LaserMeasurementGrid::Params&, float, float>(),
                  py::arg("params"), py::arg("size"), py::arg("resolution"))
             .def("generateGrid", &LaserMeasurementGrid::generateGrid, "Create a grid representation of supplied laser measurements",
-                 py::arg("measurements"));
+                 py::arg("measurements"), py::arg("angle_offset"));
 
     py::class_<DOGM::Params>(m, "DOGMParams")
             .def(py::init<float, float, int, int, float, float, float, float, float, float>(),
@@ -251,7 +320,7 @@ namespace dogm {
     py::class_<DOGM>(m, "DOGM")
             .def(py::init<const DOGM::Params&>(), py::arg("params") )
             .def("updateGrid", &DOGM::updateGrid, "Update the current state with constructed measurement grid",
-                 py::arg("cellData"), py::arg("x"), py::arg("y"), py::arg("yaw"), py::arg("dt"), py::arg("device"))
+                 py::arg("cellData"), py::arg("x"), py::arg("y"), py::arg("dt"))
             .def("getGridCells", &DOGM::getGridCells)
             .def("getMeasurementCells", &DOGM::getMeasurementCells)
             .def("getParticles", &DOGM::getParticles)
@@ -259,7 +328,6 @@ namespace dogm {
             .def("getResolution", &DOGM::getResolution)
             .def("getPositionX", &DOGM::getPositionX)
             .def("getPositionY", &DOGM::getPositionY)
-            .def("getYaw", &DOGM::getYaw)
             .def("getIteration", &DOGM::getIteration);
 
     m.def( "renderOccupancyGrid", &render_occupancy_grid, "Convert the occupancy grid into a numpy array",

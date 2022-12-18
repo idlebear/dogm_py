@@ -4,19 +4,30 @@ A pybind11 based wrapper for the [Dynamic-Obstacle-Grid library](https://github.
 
 ## Prerequisites
 
-This module is intended to be installed as a submodule to the DOGM build, becoming a CMake build target.  It does not build on its own, though it may be useful as a reference.
-
-Python 3.6 or greater 
-
-Cmake 3.6 or greater 
+* Python 3.6 or greater 
+* Cmake 3.6 or greater 
+* nVidia CUDA 
 
 ## To build 
 
-Download and build DOGM and this submodule.  
+Clone this repository and the required submodules using
+```bash
+-> git clone --recurse_submodules https://github.com/idlebear/dogm_py.git
+```  
+then building follows the standard recipe:
+```bash
+-> cd build
+-> cmake ..
+-> make -j8
+```
 
-## To run
+## To install and run
 
-Copy `dogm_py.so` to a directory on your $PYTHONPATH.  Then from python
+Run 
+```bash
+-> python setup.py -e dogm_py
+```
+Alternatively, just copy `dogm_py.so` to a directory on your $PYTHONPATH.  Then from python
 ```
 $ python
 Python 3.8.10 (default, Sep 28 2021, 16:10:42) 

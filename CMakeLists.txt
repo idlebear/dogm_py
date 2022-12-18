@@ -1,19 +1,24 @@
 project(DOGM_PY LANGUAGES CXX CUDA)
 cmake_minimum_required(VERSION 3.6)
+project( dogm_py LANGUAGES CXX CUDA )
 
-find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+find_package(CUDA REQUIRED)
 find_package(PythonInterp 3.6 REQUIRED)
 find_package(PythonLibs 3.6 REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(Eigen3 REQUIRED)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/dynamic-occupancy-grid-map/dogm)
 
 include_directories(
     ${PYTHON_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/pybind11/include
     SYSTEM
     ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-    ${GLFW3_INCLUDE_DIR}
-    ${GLEW_INCLUDE_DIRS}
-    ${GLM_INCLUDE_DIR}
     ${EIGEN3_INCLUDE_DIR}
+    ${OpenCV_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIR}
+    ${DOGM_INCLUDE_DIRS}
     )
 
 link_directories(
@@ -27,10 +32,8 @@ set( CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" "--shared --compiler-options '-fPIC'" 
 string(APPEND CMAKE_CUDA_FLAGS " --expt-extended-lambda")
 set(CUDA_PROPAGATE_HOST_FLAGS ON)
 
-add_library(dogm_py SHARED
-        dogm_py.cpp
-    ${HEADER_FILES}
-    ${SRC_FILES}
+add_library(${PROJECT_NAME} SHARED
+        src/dogm_py.cpp
     )
 
 target_link_libraries(dogm_py
@@ -38,7 +41,9 @@ target_link_libraries(dogm_py
     ${OPENGL_LIBRARY}
     ${GLFW3_LIBRARY}
     ${GLEW_LIBRARIES}
+    ${OpenCV_LIBS}
     cudart
+    dogm
 )
 
 set_target_properties(dogm_py PROPERTIES PREFIX "")
