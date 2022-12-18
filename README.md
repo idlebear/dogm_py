@@ -1,6 +1,6 @@
 # DOGM_PY
 
-A pybind11 based wrapper for the [Dynamic-Obstacle-Grid library](https://github.com/idlebear/dynamic-occupancy-grid-map), based on a template forked from [here](https://github.com/PWhiddy/pybind11-cuda)
+A pybind11 based wrapper for the [Dynamic-Obstacle-Grid library](https://github.com/idlebear/dynamic-occupancy-grid-map).
 
 ## Prerequisites
 
