@@ -23,8 +23,10 @@ then building follows the standard recipe:
 
 ## To install and run
 
-Run 
+A proper/seamless install hasn't been created yet.  There is, however, a workaround you can use.  From the build directory 
 ```bash
+-> cp dogm_py.so ../dogm_py/dogm_py.so
+-> cd ../dogm_py
 -> python setup.py -e dogm_py
 ```
 Alternatively, just copy `dogm_py.so` to a directory on your $PYTHONPATH.  Then from python
