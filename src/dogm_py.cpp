@@ -156,8 +156,7 @@ namespace dogm {
 
     #pragma omp parallel for
     for (int i = 0; i < width * height; i++) {
-        float prob = pignisticTransformation( grid_cells.free_mass[i], grid_cells.occ_mass[i] );
-        grid_ptr[ i ] = 1.0f - prob;
+        grid_ptr[ i ] = pignisticTransformation( grid_cells.free_mass[i], grid_cells.occ_mass[i] );
     }
 
     grid.freeGridCells(grid_cells);

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import time
 import numpy as np
 from threading import Lock
 
@@ -51,8 +52,8 @@ class DynamicOccupancyGrid():
 
         # DOGM LIDAR params
         fov = 360.0
-        angle_increment = 0.0087
-        lidar_range = 20.0
+        angle_increment = 0.0087 * 180.0 / np.pi
+        lidar_range = 30.0
         lidar_res = 0.1
         stddev_range = 0.1
         lmg_params = LaserMeasurementGridParams(fov=fov, angle_increment=angle_increment, max_range=lidar_range,
@@ -70,14 +71,13 @@ class DynamicOccupancyGrid():
     def lidar_callback(self, data):
         self.mutex.acquire()
         try:
-            print('lidar')
             dt = 0
             now = rospy.get_time()
             if self.last_time is not None:
                 dt = now - self.last_time
             self.last_time = now
 
-            grid_data = self.lmg.generateGrid(VectorFloat(data.ranges), self.theta)
+            grid_data = self.lmg.generateGrid(VectorFloat(data.ranges), self.theta*180.0/np.pi)
             self.dogm.updateGrid(grid_data, self.x, self.y, dt)
         finally:
             self.mutex.release()
@@ -85,11 +85,11 @@ class DynamicOccupancyGrid():
     def odom_callback(self, odom):
         self.mutex.acquire()
         try:
-            self.x = odom.pose.pos.position.x
-            self.y = odom.pose.pos.position.y
+            self.x = odom.pose.pose.position.x
+            self.y = odom.pose.pose.position.y
             # convert the supplied quaternion into a more convenient Euler angle
-            rot = odom.pose.orientation
-            _, _, yaw = self.theta = euler_from_quaternion(rot.x, rot.y, rot.z, rot.w)
+            rot = odom.pose.pose.orientation
+            _, _, self.theta = euler_from_quaternion([rot.x, rot.y, rot.z, rot.w])
         finally:
             self.mutex.release()
 
