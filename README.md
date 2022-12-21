@@ -64,3 +64,21 @@ CLASSES
      |      builtins.object
      |  
 ```
+
+
+## References
+Other than providing a wrapper to access the library, this really isn't my work.  If you find this useful, please reference the original repository and the authors of the paper the library is based on:
+>Nuss, Dominik, Stephan Reuter, Markus Thom, Ting Yuan, Gunther Krehl, Michael Maile, Axel Gern, and Klaus Dietmayer. "A random finite set approach for dynamic occupancy grid maps with real-time application." The International Journal of Robotics Research 37, no. 8 (2018): 841-866.
+
+```tex
+@article{nuss2018random,
+  title={A random finite set approach for dynamic occupancy grid maps with real-time application},
+  author={Nuss, Dominik and Reuter, Stephan and Thom, Markus and Yuan, Ting and Krehl, Gunther and Maile, Michael and Gern, Axel and Dietmayer, Klaus},
+  journal={The International Journal of Robotics Research},
+  volume={37},
+  number={8},
+  pages={841--866},
+  year={2018},
+  publisher={SAGE Publications Sage UK: London, England}
+}
+```
