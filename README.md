@@ -6,6 +6,8 @@ A pybind11 based wrapper for the [Dynamic-Obstacle-Grid (DOGM) library](https://
   <img src="./doc/occupancy-demo.gif">
 </p>
 
+Performing an update and retrieving the occupancy requires ~1ms on AMD5950/nVidia3900 hardware.  Drawing the result via matplotlib takes considerably longer...
+
 ## Prerequisites
 
 * Python 3.6 or greater 
