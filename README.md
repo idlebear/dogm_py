@@ -1,6 +1,10 @@
 # DOGM_PY
 
-A pybind11 based wrapper for the [Dynamic-Obstacle-Grid library](https://github.com/idlebear/dynamic-occupancy-grid-map), based on a template forked from [here](https://github.com/PWhiddy/pybind11-cuda)
+A pybind11 based wrapper for the [Dynamic-Obstacle-Grid (DOGM) library](https://github.com/idlebear/dynamic-occupancy-grid-map), based on a template forked from [here](https://github.com/PWhiddy/pybind11-cuda).  The DOGM library accepts 2D LaserScan formated input (a list of ranges) and outputs either a rendered probabilistic occupancy or free/occupied as a function of Demster-Shafer masses.  Here's a brief demo of the client processing data from the [Carla](www.carla.org) simulator showing free space in green, occupied in red, and orange/yellow a combination of the two.
+
+<p align="center">
+  <img src="./doc/occupancy-demo.gif">
+</p>
 
 ## Prerequisites
 
