@@ -29,8 +29,10 @@ then building follows the standard recipe:
 
 ## To install and run
 
-Run 
+A proper/seamless install hasn't been created yet.  There is, however, a workaround you can use.  From the build directory 
 ```bash
+-> cp dogm_py.so ../dogm_py/dogm_py.so
+-> cd ..  #  move to the project root
 -> python setup.py -e dogm_py
 ```
 Alternatively, just copy `dogm_py.so` to a directory on your $PYTHONPATH.  Then from python
@@ -65,6 +67,8 @@ CLASSES
      |  
 ```
 
+## ROS1
+There is a ROS1 node available in *demo* that converts a LidarScan message into an occupancy grid.   At some point, I'll get around to making a ROS2 version...
 
 ## References
 Other than providing a wrapper to access the library, this really isn't my work.  If you find this useful, please reference the original repository and the authors of the paper the library is based on:
@@ -81,4 +85,3 @@ Other than providing a wrapper to access the library, this really isn't my work.
   year={2018},
   publisher={SAGE Publications Sage UK: London, England}
 }
-```
