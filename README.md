@@ -1,6 +1,12 @@
 # DOGM_PY
 
-A pybind11 based wrapper for the [Dynamic-Obstacle-Grid library](https://github.com/idlebear/dynamic-occupancy-grid-map), based on a template forked from [here](https://github.com/PWhiddy/pybind11-cuda)
+A pybind11 based wrapper for the [Dynamic-Obstacle-Grid (DOGM) library](https://github.com/idlebear/dynamic-occupancy-grid-map), based on a template forked from [here](https://github.com/PWhiddy/pybind11-cuda).  The DOGM library accepts 2D LaserScan formated input (a list of ranges) and outputs either a rendered probabilistic occupancy or free/occupied as a function of Demster-Shafer masses.  Here's a brief demo of the client processing data from the [Carla](www.carla.org) simulator showing free space in green, occupied in red, and orange/yellow a combination of the two.
+
+<p align="center">
+  <img src="./doc/occupancy-demo.gif">
+</p>
+
+Performing an update and retrieving the occupancy requires ~1ms on AMD5950/nVidia3900 hardware.  Drawing the result via matplotlib takes considerably longer...
 
 ## Prerequisites
 
@@ -23,8 +29,10 @@ then building follows the standard recipe:
 
 ## To install and run
 
-Run 
+A proper/seamless install hasn't been created yet.  There is, however, a workaround you can use.  From the build directory 
 ```bash
+-> cp dogm_py.so ../dogm_py/dogm_py.so
+-> cd ..  #  move to the project root
 -> python setup.py -e dogm_py
 ```
 Alternatively, just copy `dogm_py.so` to a directory on your $PYTHONPATH.  Then from python
@@ -58,3 +66,22 @@ CLASSES
      |      builtins.object
      |  
 ```
+
+## ROS1
+There is a ROS1 node available in *demo* that converts a LidarScan message into an occupancy grid.   At some point, I'll get around to making a ROS2 version...
+
+## References
+Other than providing a wrapper to access the library, this really isn't my work.  If you find this useful, please reference the original repository and the authors of the paper the library is based on:
+>Nuss, Dominik, Stephan Reuter, Markus Thom, Ting Yuan, Gunther Krehl, Michael Maile, Axel Gern, and Klaus Dietmayer. "A random finite set approach for dynamic occupancy grid maps with real-time application." The International Journal of Robotics Research 37, no. 8 (2018): 841-866.
+
+```tex
+@article{nuss2018random,
+  title={A random finite set approach for dynamic occupancy grid maps with real-time application},
+  author={Nuss, Dominik and Reuter, Stephan and Thom, Markus and Yuan, Ting and Krehl, Gunther and Maile, Michael and Gern, Axel and Dietmayer, Klaus},
+  journal={The International Journal of Robotics Research},
+  volume={37},
+  number={8},
+  pages={841--866},
+  year={2018},
+  publisher={SAGE Publications Sage UK: London, England}
+}
