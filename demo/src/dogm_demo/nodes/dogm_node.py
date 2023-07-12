@@ -21,7 +21,7 @@ from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
 
 LIDAR_TOPIC = '/scan'
-ODOMETRY_TOPIC = '/odom'
+ODOMETRY_TOPIC = '/carla/ego_vehicle/odometry'
 MAP_TOPIC = '/map'
 
 
@@ -34,8 +34,8 @@ class DynamicOccupancyGrid():
         self.last_time = None
 
         # DOGM params
-        self.grid_size = 20
-        self.grid_resolution = 0.1
+        self.grid_size = 100
+        self.grid_resolution = 0.4
         particle_count = 20000
         new_born_particle_count = 10000
         persistance_prob = 0.5
@@ -52,8 +52,8 @@ class DynamicOccupancyGrid():
 
         # DOGM LIDAR params
         fov = 360.0
-        angle_increment = 0.0087 * 180.0 / np.pi
-        lidar_range = 30.0
+        angle_increment = 0.0075 * 180.0 / np.pi
+        lidar_range = 50.0
         lidar_res = 0.1
         stddev_range = 0.1
         lmg_params = LaserMeasurementGridParams(fov=fov, angle_increment=angle_increment, max_range=lidar_range,
