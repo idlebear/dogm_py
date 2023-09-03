@@ -139,6 +139,9 @@ py::array_t<float> render_dynamic_occupancy_grid(const DOGM &grid,
     grid_ptr[depth * cell_idx + 2] = b;
   }
 
+  // Free grid cell memory -- hacky, but the memory isn't released otherwise
+  grid.freeGridCells(grid_cells);
+
   // Create a Python object that will free the allocated
   // memory when destroyed:
   py::capsule delete_fn(grid_ptr, [](void *p) {
